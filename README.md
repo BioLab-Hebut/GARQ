@@ -2,75 +2,54 @@
 
 Graph-Aware Residual Quantization model (GARQ v1.0)
 
-We develop a deep learning framework based on graph-aware residual quantization (GARQ) to efficiently construct metacell representations for single-cell data. GARQ effectively captures topological relationships between cells and learns compact metacell representations through dynamic anchor mechanisms and graph-aware smoothing. Extensive experiments demonstrate that GARQ exhibits superior performance in metacell construction tasks, outperforming existing metacell construction methods across various single-cell multimodal datasets including RNA+ADT, RNA+ATAC, and RNA+ATAC+ADT datasets.
+GARQ constructs metacell representations from single-cell data using modality-specific encoding, graph-aware assignment and usage-dependent anchor repositioning. The study evaluates metacell construction and downstream analyses on RNA+ADT, RNA+ATAC and RNA+ATAC+ADT datasets.
 
 ## Table of contents
 
-- [Framework diagram](#diagram)
-- [Datasets](#Datasets)
-- [Dependencies](#Dependencies)
-- [Usage](#Usage)
-- [Output](#Output)
+- [Framework diagram](#framework-diagram)
+- [Datasets](#datasets)
+- [Dependencies](#dependencies)
+- [Usage](#usage)
+- [Output](#output)
+- [Implementation notes](#implementation-notes)
 
-## <a name="diagram">Framework diagram</a>
-![GARQ Framework](https://github.com/BioLab-Hebut/GARQ/blob/main/frame.svg)
+## Framework diagram
 
+![GARQ Framework](frame.svg)
 
-## <a name="Datasets">Datasets</a>
+Modalities are preprocessed separately and concatenated after cell-wise encoding. Assignment uses a batch-local graph; EMA updates reposition existing anchors. Aggregated profiles enter downstream analyses such as MOFA+. The matching vector PDF is [frame.pdf](frame.pdf).
 
-Example datasets used in the article can be downloaded from https://doi.org/10.6084/m9.figshare.32751672, and the downloaded datasets should be placed in the "datasets" folder.
+## Datasets
 
-## <a name="Dependencies">Dependencies</a>
+Example datasets used in the article are available at [Figshare](https://doi.org/10.6084/m9.figshare.32751672). Place downloaded input files in a `datasets` folder or pass their paths to the script.
 
-Python 3.11.6
+## Dependencies
 
-Pytorch 2.1.1
+The archived environment records Python 3.11.6, PyTorch 2.1.1, PyTorch Geometric 2.6.1, Scanpy 1.9.6, SciPy 1.11.3, scikit-learn 1.1.3, NumPy 1.26.0 and pandas 2.3.2. See `requirement.ymal` for the full historical Linux environment. Its CUDA-specific packages and host-specific prefix may need adjustment on another machine; it is an environment record, not a tested portable installer.
 
-Pytorch Geometric 2.6.1
+The model experiments used an NVIDIA RTX 4090 GPU with 24 GB device memory. Host-memory and timing measurements are described with their individual experiment settings.
 
-Scanpy 1.9.6
+## Usage
 
-Scipy 1.11.3
+GARQ accepts a separate `.h5ad` count matrix for each modality, supporting RNA, ADT and ATAC inputs, including RNA+ADT, RNA+ATAC and RNA+ATAC+ADT combinations. Paired files must contain the same cells in the same row order. Cell-type labels are optional for construction and are used for annotation-based evaluation when supplied.
 
-Sklearn 0.22.1
+The original command-line entry point is `GARQ.py`. For example, from the repository root:
 
-Numpy 1.26.0
+```bash
+mkdir -p figures
+python GARQ.py --data_file datasets/rna.h5ad datasets/adt.h5ad --data_type RNA ADT --save_name example --n_GARQs 500 --seed 1 --device cuda
+```
 
-Pandas 2.3.2
+Choose the anchor count and batch size for the dataset. At least one full training batch and enough initialization cells for the requested anchors are needed. Results are written to `save/`, and plots to `figures/`. See [GARQ_Tutorial.ipynb](GARQ_Tutorial.ipynb) for the original tutorial.
 
-All experiments of GARQ in this study are conducted on Nvidia 4090 (24G) GPU. 
+## Output
 
-## <a name="Dependencies">Usage</a>
+1. Modality-specific metacell mean profiles, computed from normalized, log-transformed member-cell profiles, for downstream analyses.
+2. Cell-to-anchor assignments, which identify the cellular composition of occupied metacells.
+3. Continuous cell embeddings in the assignment file for visualization and evaluation.
 
-**GARQ Input Data Format**
-GARQ accepts paired multi-omics single-cell data in h5ad format as input, supporting the following data types:
+The original output writer does not retain all input cell/feature names or the occupied-anchor row mapping. The revision package supplies a separate metadata restoration tool; this does not change the numerical output.
 
-+ Dual-modal data: RNA+ADT, RNA+ATAC
-+  Triple-modal data: RNA+ATAC+ADT
+## Implementation notes
 
-**Required contents in h5ad file:**
-
-1. Count matrices for each omics modality (including RNA, ADT, and/or ATAC depending on data type)
-2. Cell type annotation labels (for evaluating metacell construction quality)
-
-**Usage steps:**
-
-1. Prepare paired multi-omics data in h5ad format
-
-2. Run scripts to perform metacell construction
-
-3. Results will be saved to the specified output path
-
-    
-
-## <a name="Dependencies">Output</a>
-
-1. GARQ outputs metacell count matrices, which can be used for further downstream analyses;
-2. GARQ outputs cell-to-metacell assignment results, which can be used to trace the cellular composition of metacells;
-3. GARQ outputs latent representations of metacells, which can be visualized through Umap and used to evaluate metacell quality.
-
-
-
-
-
-
+[METHODS.md](METHODS.md) documents the implemented graph, EMA updates, decoder losses, batching and resource scope. This documentation and framework update preserves the original model computation. Revision experiment scripts are prepared separately; the original repository URL remains unchanged.
